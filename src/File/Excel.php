@@ -129,7 +129,7 @@ class Excel
                             $data[self::$headerLine][] = [
                                 'title'=>$item['title'],
                                 'value' => $item['value'],
-                                'width'=> isset($item['width']) ? $item['width'] : '',
+                                'width'=> isset($item['width']) ? $item['width'] : self::$columnWidth,
                                 'merge_column'=>isset($item['merge_column']) ? $item['merge_column'] : '',
                                 'merge_line'=>isset($item['merge_line']) ? $item['merge_line'] : ''
                             ];
