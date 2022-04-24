@@ -1,0 +1,13 @@
+{
+    "name": "uroad/utils",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Uroad\\Utils\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "require": {
+        "phpoffice/phpexcel": "1.8.x-dev"
+    }
+}
