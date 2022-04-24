@@ -8,6 +8,6 @@
     },
     "minimum-stability": "dev",
     "require": {
-        "phpoffice/phpexcel": "1.8.x-dev"
+        "phpoffice/phpspreadsheet": "dev-master"
     }
 }

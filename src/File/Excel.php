@@ -4,6 +4,9 @@ namespace Uroad\Utils\File;
 
 
 
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+
 class Excel
 {
 
@@ -31,7 +34,7 @@ class Excel
             if (isset($config['font_size'])) $this->fontSize = $config['font_size'];
             if (isset($config['font_bold'])) $this->fontBold = $config['font_bold'];
         }
-        self::$obj = new \PHPExcel();
+        self::$obj = new Spreadsheet();
         self::$obj->getDefaultStyle()->getFont()->setName($this->fontName);//设置字体
         self::$obj->getDefaultStyle()->getFont()->setSize($this->fontSize);//设置字体大小
         self::$obj->getDefaultStyle()->getFont()->setBold($this->fontBold);//设置是否加粗
@@ -145,7 +148,6 @@ class Excel
     /**
      * 设置标题数据
      * @param $header
-     * @throws \PHPExcel_Exception
      */
     private static function setHeaderData($header)
     {
@@ -176,23 +178,22 @@ class Excel
     /**
      * 生成表格
      * @param string $path 路程 存在即保存指定路径
-     * @param string $format 格式 Excel2007:xlsx  Excel5:xls
+     * @param string $format 格式 Xlsx  Xls
      * @return bool|string
-     * @throws \PHPExcel_Exception
-     * @throws \PHPExcel_Reader_Exception
-     * @throws \PHPExcel_Writer_Exception
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     * @throws \PhpOffice\PhpSpreadsheet\Writer\Exception
      */
-    public function generate($path ='',$format = 'Excel2007')
+    public function generate($path ='',$format = 'Xlsx')
     {
         if (self::$setData && self::$setHeader) return false;
-        if ($format == 'Excel2007') {
+        if ($format == 'Xlsx') {
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        } elseif ($format == 'Excel5') {
+        } elseif ($format == 'Xls') {
             header('Content-Type: application/vnd.ms-excel');
         }
         self::$obj->setActiveSheetIndex(0);
         ob_end_clean();//清除缓冲区,避免乱码
-        $objWriter = \PHPExcel_IOFactory::createWriter(self::$obj,$format);
+        $objWriter = IOFactory::createWriter(self::$obj,$format);
         if (!empty($path)) {
             $objWriter->save($path);
             return $path;
