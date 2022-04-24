@@ -6,8 +6,9 @@
             "Uroad\\Utils\\": "src/"
         }
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "require": {
-        "phpoffice/phpspreadsheet": "dev-master"
+        "php": ">=7.3",
+        "phpoffice/phpspreadsheet": "1.22.0"
     }
 }
