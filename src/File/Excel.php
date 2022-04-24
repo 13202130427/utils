@@ -6,17 +6,6 @@ namespace Uroad\Utils\File;
 
 class Excel
 {
-//    private $example = [
-//        [
-//            'A' => ['title'=>'','value' => '','width'=>'','merge_column'=>'B'],
-//            'C' => ['title'=>'','value' => '','width'=>''],
-//        ],
-//        [
-//            'A' => ['title'=>'','value' => '','width'=>''],
-//            'B' => ['title'=>'','value' => '','width'=>''],
-//            'C' => ['title'=>'','value' => '','width'=>''],
-//        ]
-//    ];
 
     private static $header;
     private static $headerLine = 0;
@@ -66,7 +55,24 @@ class Excel
         return self::$instance;
     }
 
-    public static function setHeader($header = [])
+    /**
+     * @param array $header 标题 支持单行多行 标准格式  [
+            [
+                'A' => ['title'=>'','value' => '','width'=>'','merge_column'=>'B'],
+                'C' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
+            ],
+            [
+                'A' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
+                'B' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
+                'C' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
+            ]
+     ]
+     * @param int $sheetIndex 内置表 默认表一
+     * @param string $sheetName 内置表名称 默认 Sheet1
+     * @return bool
+     * @throws \PHPExcel_Exception
+     */
+    public static function setHeader($header = [],$sheetIndex = 0,$sheetName = 'Sheet1')
     {
         $header = self::setHeaderFormat($header);
         self::setHeaderData($header);
@@ -74,7 +80,10 @@ class Excel
         if (self::$headerLine == 0) return false;
         foreach ($header as $line => $head) {
             foreach ($head as $column => $data) {
-                self::$obj->setActiveSheetIndex(0)->setCellValue( $column.$line, $data['title']);
+                self::$obj->createSheet($sheetIndex);
+                $sheet = self::$obj->getActiveSheet();
+                $sheet->setTitle($sheetName);
+                self::$obj->setActiveSheetIndex($sheetIndex)->setCellValue( $column.$line, $data['title']);
                 if(!empty($data['merge_column']) && in_array($data['merge_column'],self::$columnList)) {
                     //合并列
                     self::$obj->getActiveSheet()->mergeCells($column.$line.':'.$data['merge_column']);
@@ -149,20 +158,30 @@ class Excel
     }
 
     /**
-     * @param $data  [['value' => 'data']]
+     * @param array $data  格式 [['value' => 'data']]
+     * @param int $sheetIndex 内置表 默认表一
      */
-    public static function setData($data)
+    public static function setData($data,$sheetIndex = 0)
     {
         $startLine = self::$headerLine +1;
         foreach ($data as $lineData) {
             foreach ($lineData as $column => $columnData) {
                 $column = array_search($column,self::$header);
-                self::$obj->setActiveSheetIndex(0)->setCellValue( $column.$startLine, $columnData);
+                self::$obj->setActiveSheetIndex($sheetIndex)->setCellValue( $column.$startLine, $columnData);
             }
             $startLine++;
         }
     }
 
+    /**
+     * 生成表格
+     * @param string $path 路程 存在即保存指定路径
+     * @param string $format 格式 Excel2007:xlsx  Excel5:xls
+     * @return bool|string
+     * @throws \PHPExcel_Exception
+     * @throws \PHPExcel_Reader_Exception
+     * @throws \PHPExcel_Writer_Exception
+     */
     public function generate($path ='',$format = 'Excel2007')
     {
         if (self::$setData && self::$setHeader) return false;
