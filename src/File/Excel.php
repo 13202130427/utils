@@ -60,20 +60,21 @@ class Excel
 
     /**
      * @param array $header 标题 支持单行多行 标准格式  [
-            [
-                'A' => ['title'=>'','value' => '','width'=>'','merge_column'=>'B'],
-                'C' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
-            ],
-            [
-                'A' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
-                'B' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
-                'C' => ['title'=>'','value' => '','width'=>'','merge_column'=>''],
-            ]
-     ]
+     * [
+     * 'A' => ['title'=>'','value' => '','width'=>'','merge_column'=>'B','merge_line'=>''],
+     * 'C' => ['title'=>'','value' => '','width'=>'','merge_column'=>'','merge_line'=>''],
+     * ],
+     * [
+     * 'A' => ['title'=>'','value' => '','width'=>'','merge_column'=>'','merge_line'=>''],
+     * 'B' => ['title'=>'','value' => '','width'=>'','merge_column'=>'','merge_line'=>''],
+     * 'C' => ['title'=>'','value' => '','width'=>'','merge_column'=>'','merge_line'=>'1'],
+     * ]
+     * ]
+     * title：中文标题 value：英文标题 width 列宽 merge_column 合并列 merge_line 向上合并行数
      * @param int $sheetIndex 内置表 默认表一
      * @param string $sheetName 内置表名称 默认 Sheet1
      * @return bool
-     * @throws \PHPExcel_Exception
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
      */
     public static function setHeader($header = [],$sheetIndex = 0,$sheetName = 'Sheet1')
     {
@@ -89,7 +90,13 @@ class Excel
                 self::$obj->setActiveSheetIndex($sheetIndex)->setCellValue( $column.$line, $data['title']);
                 if(!empty($data['merge_column']) && in_array($data['merge_column'],self::$columnList)) {
                     //合并列
-                    self::$obj->getActiveSheet()->mergeCells($column.$line.':'.$data['merge_column']);
+                    self::$obj->getActiveSheet()->mergeCells($column.$line.':'.$data['merge_column'].$line);
+                }
+                if (!empty($data['merge_line']) && is_numeric($data['merge_line'])) {
+                    //合并行
+                    $lastLine = $line-$data['merge_line'];
+                    if ($lastLine > 0) $lastLine = 1;//超过条数默认第一行开始
+                    self::$obj->getActiveSheet()->mergeCells($column.$lastLine.':'.$column.$line);
                 }
             }
         }
@@ -109,21 +116,22 @@ class Excel
             foreach ($header as $key => $value) {
                 if (!is_array($value)) {
                     //单行表头 格式为 title-value
-                    $data[1][] = ['title'=>$key,'value' => $value,'width'=>self::$columnWidth,'merge_column'=>''];
+                    $data[1][] = ['title'=>$key,'value' => $value,'width'=>self::$columnWidth,'merge_column'=>'','merge_line'=>''];
                     self::$headerLine = 1;
                 } else {
                     self::$headerLine ++;
                     foreach ($value as $k =>$item) {
                         if (!is_array($item)) {
                             //多行表头 格式为 title-value
-                            $data[self::$headerLine][] = ['title'=>$k,'value' => $value,'width'=>self::$columnWidth,'merge_column'=>''];
+                            $data[self::$headerLine][] = ['title'=>$k,'value' => $value,'width'=>self::$columnWidth,'merge_column'=>'','merge_line'=>''];
                         } else {
                             //多行表头 标准格式
                             $data[self::$headerLine][] = [
                                 'title'=>$item['title'],
                                 'value' => $item['value'],
                                 'width'=> isset($item['width']) ? $item['width'] : '',
-                                'merge_column'=>isset($item['merge_column']) ? $item['merge_column'] : ''
+                                'merge_column'=>isset($item['merge_column']) ? $item['merge_column'] : '',
+                                'merge_line'=>isset($item['merge_line']) ? $item['merge_line'] : ''
                             ];
                         }
                     }
