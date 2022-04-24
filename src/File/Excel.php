@@ -90,7 +90,7 @@ class Excel
         if (self::$headerLine == 0) return false;
         foreach ($header as $line => $head) {
             foreach ($head as $column => $data) {
-                if (Common::isEmpty($data,'value')) self::$header[$column] = $data['value'];
+                if (!Common::isEmpty($data,'value')) self::$header[$column] = $data['value'];
                 if (!Common::isEmpty($data,'merge_line') && is_numeric($data['merge_line'])) {
                     //合并行
                     $lastLine = $line-$data['merge_line'];
@@ -131,6 +131,10 @@ class Excel
                                 'title'=>$item['title'],
                                 'value' => $item['value'],
                             ];
+                            Common::isEmptySetValue($item,'column_width',$data[self::$headerLine][$k],'column_width','');
+                            Common::isEmptySetValue($item,'line_high',$data[self::$headerLine][$k],'line_high','');
+                            Common::isEmptySetValue($item,'merge_column',$data[self::$headerLine][$k],'merge_column','');
+                            Common::isEmptySetValue($item,'merge_line',$data[self::$headerLine][$k],'merge_line','');
                         }
                     }
                 }
@@ -159,7 +163,6 @@ class Excel
     {
         $headerStyle = [];
         $sheet = self::$obj->getActiveSheet();
-
         foreach ($header as $line => $head) {
             foreach ($head as $column => $data) {
                 Common::isEmptySetValue($data,'column_width',$headerStyle['column_width'],$column,self::$columnWidth);
@@ -175,7 +178,9 @@ class Excel
                     $lastLine = $line-$data['merge_line'];
                     if ($lastLine <= 0) $lastLine = 1;//超过条数默认第一行开始
                     $sheet->mergeCells($column.$lastLine.':'.$column.$line);
-                   continue;
+                    Common::isEmptySetValue($data,'horizontal',$headerStyle['horizontal'],$column.$lastLine,Alignment::HORIZONTAL_CENTER);
+                    Common::isEmptySetValue($data,'vertical',$headerStyle['vertical'],$column.$lastLine,Alignment::VERTICAL_CENTER);
+                    continue;
                 }
             }
         }
