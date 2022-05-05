@@ -3,6 +3,7 @@
 namespace Uroad\Utils\File;
 
 
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Uroad\Utils\Common;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -12,34 +13,45 @@ class Excel
 {
 
     private static $header;
-    private static $headerLine = 0;
+    private static $headerLine = [];
 
     private $fontName = 'Arial';
     private $fontSize = 20;
     private $fontBold = false;
 
-
+    private static $type;
     private static $obj;
     private static $columnList = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
     private static $columnWidth = 20;
-    private static $lineHigh = 20;
+    private static $lineHigh = 30;
+    private static $horizontal = Alignment::HORIZONTAL_CENTER;
+    private static $vertical = Alignment::VERTICAL_CENTER;
 
     public static $instance = null;
 
     private static $setHeader = false;
     private static $setData = false;
 
-    private function __construct($config = [])
+
+    private function __construct($type,$config = [])
     {
         if (!empty($config)) {
             if (isset($config['font_name'])) $this->fontName = $config['font_name'];
             if (isset($config['font_size'])) $this->fontSize = $config['font_size'];
             if (isset($config['font_bold'])) $this->fontBold = $config['font_bold'];
+            if (isset($config['column_width'])) self::$columnWidth = $config['column_width'];
+            if (isset($config['line_high'])) self::$lineHigh = $config['line_high'];
+            if (isset($config['horizontal'])) self::$horizontal = $config['horizontal'];
+            if (isset($config['vertical'])) self::$vertical = $config['vertical'];
         }
-        self::$obj = new Spreadsheet();
-        self::$obj->getDefaultStyle()->getFont()->setName($this->fontName);//设置字体
-        self::$obj->getDefaultStyle()->getFont()->setSize($this->fontSize);//设置字体大小
-        self::$obj->getDefaultStyle()->getFont()->setBold($this->fontBold);//设置是否加粗
+        self::$type = $type;
+        if ($type == 1) {
+            self::$obj = new Spreadsheet();
+            self::$obj->getDefaultStyle()->getFont()->setName($this->fontName);//设置字体
+            self::$obj->getDefaultStyle()->getFont()->setSize($this->fontSize);//设置字体大小
+            self::$obj->getDefaultStyle()->getFont()->setBold($this->fontBold);//设置是否加粗
+            return;
+        }
     }
     private function __clone()
     {
@@ -50,12 +62,13 @@ class Excel
     /**
      * 加载入口
      * @param array $config
+     * @param int $type 0读 1写
      * @return Excel|null
      */
-    public static function load($config = [])
+    public static function load($type,$config = [])
     {
         if (!(self::$instance instanceof self)) {
-            self::$instance = new self($config);
+            self::$instance = new self($type,$config);
         }
         return self::$instance;
     }
@@ -74,20 +87,22 @@ class Excel
      * ]
      * title：中文标题 value：英文标题 width 列宽 merge_column 合并列 merge_line 向上合并行数
      * @param int $sheetIndex 内置表 默认表一
-     * @param string $sheetName 内置表名称 默认 Sheet1
-     * @return bool
+     * @param string $sheetName 内置表名称 默认 Sheet0
+     * @return bool|Excel
      * @throws \PhpOffice\PhpSpreadsheet\Exception
      */
-    public static function setHeader($header = [],$sheetIndex = 0,$sheetName = 'Sheet1')
+    public function setHeader($header = [],$sheetIndex = 0,$sheetName = '')
     {
+        self::$headerLine[$sheetIndex] = 0;
         self::$obj->createSheet($sheetIndex);
         self::$obj->setActiveSheetIndex($sheetIndex);
         $sheet = self::$obj->getActiveSheet();
+        if (empty($sheetName)) $sheetName = 'Sheet'.$sheetIndex;
         $sheet->setTitle($sheetName);
-        $header = self::setHeaderFormat($header);
-        self::setHeaderStyle($header);
+        $header = self::setHeaderFormat($header,$sheetIndex);
         if (!$header) return false;
-        if (self::$headerLine == 0) return false;
+        self::setHeaderStyle($header);
+        if (self::$headerLine[$sheetIndex] == 0) return false;
         foreach ($header as $line => $head) {
             foreach ($head as $column => $data) {
                 if (!Common::isEmpty($data,'value')) self::$header[$column] = $data['value'];
@@ -101,58 +116,47 @@ class Excel
                 $sheet->setCellValue($column.$line, $data['title']);
             }
         }
+        return $this;
     }
 
     /**
      * 设置标题格式
      * @param $header
+     * @param $sheetIndex
      * @return array|bool
      */
-    private static function setHeaderFormat($header)
+    private static function setHeaderFormat($header,$sheetIndex)
     {
         $data = [];
-        $result = [];
         try {
             //处理数据
             foreach ($header as $key => $value) {
                 if (!is_array($value)) {
-                    //单行表头 格式为 title-value
-                    $data[1][] = ['title'=>$key,'value' => $value];
-                    self::$headerLine = 1;
-                } else {
-                    self::$headerLine ++;
-                    foreach ($value as $k =>$item) {
-                        if (!is_array($item)) {
-                            //多行表头 格式为 title-value
-                            $data[self::$headerLine][] = ['title'=>$k,'value' => $value];
-                        } else {
-                            //多行表头 标准格式
-                            $data[self::$headerLine][$k] = [
-                                'title'=>$item['title'],
-                                'value' => $item['value'],
-                            ];
-                            Common::isEmptySetValue($item,'column_width',$data[self::$headerLine][$k],'column_width','');
-                            Common::isEmptySetValue($item,'line_high',$data[self::$headerLine][$k],'line_high','');
-                            Common::isEmptySetValue($item,'merge_column',$data[self::$headerLine][$k],'merge_column','');
-                            Common::isEmptySetValue($item,'merge_line',$data[self::$headerLine][$k],'merge_line','');
-                        }
-                    }
+                    return false;
                 }
-            }
-            //将数字键名改成英文字母键名
-            foreach ($data as $key => $value) {
-                foreach ($value as $k => $column) {
-                    if (!in_array($k,self::$columnList)) {
-                        $result[$key][self::$columnList[$k]] = $column;
-                        continue;
+                foreach ($value as $k =>$item) {
+                    if (!is_array($item)) {
+                        return false;
                     }
-                    $result[$key][$k] = $column;
+                    self::$headerLine[$sheetIndex] ++;
+                    if (!in_array($k,self::$columnList)) {
+                        $k = self::$columnList[$k];
+                    }
+                    //多行表头 标准格式
+                    $data[self::$headerLine[$sheetIndex]][$k] = [
+                        'title'=>$item['title'],
+                        'value' => $item['value'],
+                    ];
+                    Common::isEmptySetValue($item,'column_width',$data[self::$headerLine[$sheetIndex]][$k],'column_width','');
+                    Common::isEmptySetValue($item,'line_high',$data[self::$headerLine[$sheetIndex]][$k],'line_high','');
+                    Common::isEmptySetValue($item,'merge_column',$data[self::$headerLine[$sheetIndex]][$k],'merge_column','');
+                    Common::isEmptySetValue($item,'merge_line',$data[self::$headerLine[$sheetIndex]][$k],'merge_line','');
                 }
             }
         }catch (\Throwable $exception) {
             return false;
         }
-        return $result;
+        return $data;
     }
 
     /**
@@ -167,8 +171,8 @@ class Excel
             foreach ($head as $column => $data) {
                 Common::isEmptySetValue($data,'column_width',$headerStyle['column_width'],$column,self::$columnWidth);
                 Common::isEmptySetValue($data,'line_high',$headerStyle['line_high'],$line,self::$lineHigh);
-                Common::isEmptySetValue($data,'horizontal',$headerStyle['horizontal'],$column.$line,Alignment::HORIZONTAL_CENTER);
-                Common::isEmptySetValue($data,'vertical',$headerStyle['vertical'],$column.$line,Alignment::VERTICAL_CENTER);
+                Common::isEmptySetValue($data,'horizontal',$headerStyle['horizontal'],$column.$line,self::$horizontal);
+                Common::isEmptySetValue($data,'vertical',$headerStyle['vertical'],$column.$line,self::$vertical);
                 if(!Common::isEmpty($data,'merge_column') && in_array($data['merge_column'],self::$columnList)) {
                     //合并列
                     $sheet->mergeCells($column.$line.':'.$data['merge_column'].$line);
@@ -178,8 +182,8 @@ class Excel
                     $lastLine = $line-$data['merge_line'];
                     if ($lastLine <= 0) $lastLine = 1;//超过条数默认第一行开始
                     $sheet->mergeCells($column.$lastLine.':'.$column.$line);
-                    Common::isEmptySetValue($data,'horizontal',$headerStyle['horizontal'],$column.$lastLine,Alignment::HORIZONTAL_CENTER);
-                    Common::isEmptySetValue($data,'vertical',$headerStyle['vertical'],$column.$lastLine,Alignment::VERTICAL_CENTER);
+                    Common::isEmptySetValue($data,'horizontal',$headerStyle['horizontal'],$column.$lastLine,self::$horizontal);
+                    Common::isEmptySetValue($data,'vertical',$headerStyle['vertical'],$column.$lastLine,self::$vertical);
                     continue;
                 }
             }
@@ -212,21 +216,27 @@ class Excel
     }
 
     /**
-     * @param array $data  格式 [['value' => 'data']]
+     * @param array $data 格式 [['value' => 'data']]
      * @param int $sheetIndex 内置表 默认表一
+     * @return Excel
      */
-    public static function setData($data,$sheetIndex = 0)
+    public function setData($data,$sheetIndex = 0)
     {
         self::$obj->setActiveSheetIndex($sheetIndex);
         $sheet = self::$obj->getActiveSheet();
-        $startLine = self::$headerLine +1;
+        $startLine = self::$headerLine[$sheetIndex] +1;
         foreach ($data as $lineData) {
             foreach ($lineData as $column => $columnData) {
                 $column = array_search($column,self::$header);
                 $sheet->setCellValue( $column.$startLine, $columnData);
+                $sheet->getStyle($column.$startLine)->applyFromArray(['alignment'=>[
+                    'horizontal'=>self::$horizontal,
+                    'vertical'=>self::$vertical
+                ]]);
             }
             $startLine++;
         }
+        return $this;
     }
 
     /**
@@ -255,5 +265,138 @@ class Excel
         $objWriter->save('php://output');
         exit;
     }
+
+    public function dataConvert($header,$file,$format,$sheetIndex = 0) {
+        $file = iconv("utf-8", "gb2312", $file);
+        $objRead = IOFactory::createReader($format);
+        if (empty($filePath) or !file_exists($filePath)) {
+            throw new \Exception('文件不存在!');
+        }
+        if (!$objRead->canRead($file)) {
+            throw new \Exception('格式错误');
+        }
+        //设置只读
+        $objRead->setReadDataOnly(true);
+        self::$obj = $objRead->load($file);
+        $sheet = self::$obj->getSheet($sheetIndex);
+        //获取总列数
+        $columnAddress = $sheet->getHighestColumn();
+        $columnNum = Coordinate::columnIndexFromString($columnAddress);
+        //获取总行数
+        $highestRow = $sheet->getHighestRow();
+        /* 读取内容 */
+        $data = [];
+        //读取标题
+        if (!self::matchHeader($header,$sheetIndex,$columnNum)) {
+            throw new \Exception('表头不匹配');
+        }
+        for ($row = self::$headerLine[$sheetIndex]+1; $row <= $highestRow; $row++) {
+            $isNull = true;
+            for ($column = 1; $column <= $columnNum; $column++) {
+                $cellName = Coordinate::stringFromColumnIndex($column);
+                $data[$row][self::$header[$cellName]] = trim($sheet->getCell($cellName . $row)->getFormattedValue());
+                if (empty($data[$row][$cellName])) {
+                    //是否被合并了
+                    $result = $this->checkCellIsMerge($sheetIndex,$cellName . $row);
+                    if ($result !== false) {
+                        $data[$row][$cellName] = $result;
+                    }
+                }
+                if (!empty($data[$row][$cellName])) {
+                    $isNull = false;
+                }
+            }
+            /* 判断是否整行数据为空，是的话删除该行数据 */
+            if ($isNull) {
+                unset($data[$row]);
+            }
+        }
+        return $data;
+    }
+
+    /**
+     * 验证是否为合并单元格 是返回合并单元第一个赋值单元的值 不是返回false
+     * @param $sheetIndex
+     * @param $cell string 验证单元格 A1
+     * @return bool|string
+     * @throws \PhpOffice\PhpSpreadsheet\Exception
+     */
+    private function checkCellIsMerge($sheetIndex,$cell)
+    {
+        $cellColumn = array_search(substr($cell,0,1),self::$columnList);
+        $cellRow = array_search(substr($cell,1),self::$columnList);
+        $sheet = self::$obj->getSheet($sheetIndex);
+        $mergeCells = $sheet->getMergeCells();
+        foreach ($mergeCells as $mergeCell) {
+            $mergeCellArr = explode(':',$mergeCell);
+            $mergeStartColumn = array_search(substr($mergeCellArr[0],0,1),self::$columnList);
+            $mergeEndColumn = array_search(substr($mergeCellArr[1],0,1),self::$columnList);
+            $mergeStartRow = substr($mergeCellArr[0],1);
+            $mergeEndRow = substr($mergeCellArr[1],1);
+            //A1:B1 ||  A1:B2
+            if ($cellColumn <= $mergeStartColumn && $cellColumn >= $mergeEndColumn && $cellRow >= $mergeStartRow && $cellRow <= $mergeEndRow) {
+                return trim($sheet->getCell($mergeCellArr[0])->getFormattedValue());
+            }
+        }
+        return false;
+    }
+
+    private function matchHeader($header,$sheetIndex,$columnNum)
+    {
+        //表头转换
+        $header = self::headerConvert($header,$sheetIndex);
+        //获取文件对应表头数据
+        $fileHeader = [];
+        $sheet = self::$obj->getSheet($sheetIndex);
+        for ($row = 1; $row <= self::$headerLine[$sheetIndex];$row++) {
+            for ($column = 1; $column <= $columnNum; $column++) {
+                $cellName = Coordinate::stringFromColumnIndex($column);
+                $cellValue = trim($sheet->getCell($cellName . $row)->getFormattedValue());
+                if (!empty($cellValue)) {
+                    $fileHeader[$cellName] = $cellValue;
+                }
+            }
+        }
+        //文件表头与模板表头匹配
+        foreach ($fileHeader as $column => $title) {
+            if ($header[$column] != $title) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 表头转换
+     * @param $header
+     * @param $sheetIndex
+     * @return bool
+     */
+    private function headerConvert($header,$sheetIndex)
+    {
+        self::$headerLine[$sheetIndex] = 0;
+        $data = [];
+        try {
+            //处理数据
+            foreach ($header as $key => $value) {
+                if (!is_array($value)) {
+                    return false;
+                }
+                foreach ($value as $k =>$item) {
+                    if (!is_array($item)) {
+                        return false;
+                    }
+                    self::$headerLine[$sheetIndex] ++;
+                    //多行表头 标准格式
+                    $data[self::$headerLine[$sheetIndex]][$k] = $item['title'];
+                    self::$header[self::$headerLine[$sheetIndex]][$k] = $item['value'];
+                }
+            }
+        }catch (\Throwable $exception) {
+            return false;
+        }
+        return true;
+    }
+
 
 }
