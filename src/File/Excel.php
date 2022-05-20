@@ -65,7 +65,7 @@ class Excel
      * @param int $type 0读 1写
      * @return Excel|null
      */
-    public static function load($type,$config = [])
+    public static function load($type = 0,$config = [])
     {
         if (!(self::$instance instanceof self)) {
             self::$instance = new self($type,$config);
@@ -267,51 +267,56 @@ class Excel
     }
 
     public function dataConvert($header,$file,$format,$sheetIndex = 0) {
-        $file = iconv("utf-8", "gb2312", $file);
-        $objRead = IOFactory::createReader($format);
-        if (empty($filePath) or !file_exists($filePath)) {
-            throw new \Exception('文件不存在!');
-        }
-        if (!$objRead->canRead($file)) {
-            throw new \Exception('格式错误');
-        }
-        //设置只读
-        $objRead->setReadDataOnly(true);
-        self::$obj = $objRead->load($file);
-        $sheet = self::$obj->getSheet($sheetIndex);
-        //获取总列数
-        $columnAddress = $sheet->getHighestColumn();
-        $columnNum = Coordinate::columnIndexFromString($columnAddress);
-        //获取总行数
-        $highestRow = $sheet->getHighestRow();
-        /* 读取内容 */
-        $data = [];
-        //读取标题
-        if (!self::matchHeader($header,$sheetIndex,$columnNum)) {
-            throw new \Exception('表头不匹配');
-        }
-        for ($row = self::$headerLine[$sheetIndex]+1; $row <= $highestRow; $row++) {
-            $isNull = true;
-            for ($column = 1; $column <= $columnNum; $column++) {
-                $cellName = Coordinate::stringFromColumnIndex($column);
-                $data[$row][self::$header[$cellName]] = trim($sheet->getCell($cellName . $row)->getFormattedValue());
-                if (empty($data[$row][$cellName])) {
-                    //是否被合并了
-                    $result = $this->checkCellIsMerge($sheetIndex,$cellName . $row);
-                    if ($result !== false) {
-                        $data[$row][$cellName] = $result;
+        try {
+            $file = iconv("utf-8", "gb2312", $file);
+            $objRead = IOFactory::createReader($format);
+            if (empty($file) || !file_exists($file)) {
+                throw new \Exception('文件不存在!');
+            }
+            if (!$objRead->canRead($file)) {
+                throw new \Exception('格式错误');
+            }
+            //设置只读
+            $objRead->setReadDataOnly(true);
+            self::$obj = $objRead->load($file);
+            $sheet = self::$obj->getSheet($sheetIndex);
+            //获取总列数
+            $columnAddress = $sheet->getHighestColumn();
+            $columnNum = Coordinate::columnIndexFromString($columnAddress);
+            //获取总行数
+            $highestRow = $sheet->getHighestRow();
+            /* 读取内容 */
+            $data = [];
+            //读取标题
+            if (!self::matchHeader($header,$sheetIndex,$columnNum)) {
+                throw new \Exception('表头不匹配');
+            }
+            for ($row = self::$headerLine[$sheetIndex]+1; $row <= $highestRow; $row++) {
+                $isNull = true;
+                for ($column = 1; $column <= $columnNum; $column++) {
+                    $cellName = Coordinate::stringFromColumnIndex($column);
+                    $data[$row][self::$header[$cellName]] = trim($sheet->getCell($cellName . $row)->getFormattedValue());
+                    if (empty($data[$row][self::$header[$cellName]])) {
+                        //是否被合并了
+                        $result = $this->checkCellIsMerge($sheetIndex,$cellName . $row);
+                        if ($result !== false) {
+                            $data[$row][self::$header[$cellName]] = $result;
+                        }
+                    }
+                    if (!empty($data[$row][self::$header[$cellName]])) {
+                        $isNull = false;
                     }
                 }
-                if (!empty($data[$row][$cellName])) {
-                    $isNull = false;
+                /* 判断是否整行数据为空，是的话删除该行数据 */
+                if ($isNull) {
+                    unset($data[$row]);
                 }
             }
-            /* 判断是否整行数据为空，是的话删除该行数据 */
-            if ($isNull) {
-                unset($data[$row]);
-            }
+            array_multisort($data);
+            return $data;
+        }catch (\Exception $exception) {
+            throw new \Exception($exception);
         }
-        return $data;
     }
 
     /**
@@ -345,6 +350,7 @@ class Excel
     {
         //表头转换
         $header = self::headerConvert($header,$sheetIndex);
+        if (!$header) return false;
         //获取文件对应表头数据
         $fileHeader = [];
         $sheet = self::$obj->getSheet($sheetIndex);
@@ -382,20 +388,20 @@ class Excel
                 if (!is_array($value)) {
                     return false;
                 }
+                self::$headerLine[$sheetIndex] ++;
                 foreach ($value as $k =>$item) {
                     if (!is_array($item)) {
                         return false;
                     }
-                    self::$headerLine[$sheetIndex] ++;
                     //多行表头 标准格式
-                    $data[self::$headerLine[$sheetIndex]][$k] = $item['title'];
-                    self::$header[self::$headerLine[$sheetIndex]][$k] = $item['value'];
+                    $data[$k] = $item['title'];
+                    self::$header[$k] = $item['value'];
                 }
             }
         }catch (\Throwable $exception) {
             return false;
         }
-        return true;
+        return $data;
     }
 
 
