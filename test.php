@@ -1,6 +1,7 @@
 <?php
 
 use Uroad\Utils\File\Excel;
+use Uroad\Utils\Mysql\Db;
 
 class Test {
 
@@ -97,5 +98,17 @@ class Test {
         } catch (\Exception $e) {
             var_dump($e);die;
         }
+    }
+
+    public function setSQL()
+    {
+        $sql = Db::table(['yx_service_scheduling','yx_service_scheduling2022'])->as('a')
+            ->join('LEFT JOIN org_employee b ON a.empid=b.ID')
+            ->join('LEFT JOIN org_department c ON a.companyid=c.ID')
+            ->where('a.companyid=? OR a.companyid=?',[10060007,10060008])
+            ->where("a.sdate=?",['2022-08-23'])
+            ->select('a.sdate,a.shifts,b.EmplName,c.DepaName')
+            ->get();
+        var_dump($sql);
     }
 }
