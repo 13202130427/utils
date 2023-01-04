@@ -45,8 +45,8 @@ class Excel
             if (isset($config['vertical'])) self::$vertical = $config['vertical'];
         }
         self::$type = $type;
+        self::$obj = new Spreadsheet();
         if ($type == 1) {
-            self::$obj = new Spreadsheet();
             self::$obj->getDefaultStyle()->getFont()->setName($this->fontName);//设置字体
             self::$obj->getDefaultStyle()->getFont()->setSize($this->fontSize);//设置字体大小
             self::$obj->getDefaultStyle()->getFont()->setBold($this->fontBold);//设置是否加粗

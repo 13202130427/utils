@@ -1,11 +1,12 @@
 <?php
 
 use Uroad\Utils\File\Excel;
+use Uroad\Utils\File\Word;
 use Uroad\Utils\Mysql\Db;
 
 class Test {
 
-    public function write()
+    public function excelWrite()
     {
         $excel = Excel::load(1);
         $fileUrl = './a.xlsx';
@@ -62,7 +63,7 @@ class Test {
     }
 
 
-    public function read()
+    public function excelRead()
     {
         $excel = Excel::load();
         $fileUrl = './a.xlsx';
@@ -110,5 +111,26 @@ class Test {
             ->select('a.sdate,a.shifts,b.EmplName,c.DepaName')
             ->get();
         var_dump($sql);
+    }
+
+    public function wordWrite()
+    {
+        $fileUrl = './b.docx';
+        $word = Word::load();
+        $page = $word->addPage();
+        $title = [
+            'comment' => '名称',
+            'name' => '代码',
+            'desc' => '描述'
+        ];
+        $data = [
+          [
+              'comment' => '【监控岗星评配置】班长星评配置',
+              'name' => 'yx_base_star_monitor_leader',
+              'desc' =>'【监控岗星评配置】班长星评配置'
+          ]
+        ];
+        $word->addTable($page,$title,$data);
+        $word->generate($fileUrl);
     }
 }
