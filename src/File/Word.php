@@ -6,6 +6,9 @@ namespace Uroad\Utils\File;
 
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\SimpleType\Jc;
+use PhpOffice\PhpWord\SimpleType\JcTable;
+use PhpOffice\PhpWord\SimpleType\TblWidth;
 
 class Word
 {
@@ -14,10 +17,24 @@ class Word
 
     private function __construct($config = [])
     {
-        if (!empty($config)) {
-
-        }
         self::$obj = new PhpWord();
+        $this->init($config);
+        if (!empty($config)) {
+        }
+    }
+
+    private function init($config)
+    {
+        if (!$config) {
+            $config = [
+                'borderColor' => '000000',
+                'borderSize'  => 6,
+                'width' => '97%',
+                'unit'=>TblWidth::PERCENT,
+                'alignment'=>JcTable::CENTER,
+            ];
+        }
+        self::$obj->addTableStyle('default',$config,['bgColor' => 'D9D9D9']);
     }
 
     private function __clone()
@@ -44,28 +61,39 @@ class Word
         return self::$obj->addSection();
     }
 
+    public function addTitle($section,$title)
+    {
+        $section->addText($title,['size'=>16]);
+    }
+
     /**
      * @param  $section
      * @param $title
      * @param $data
      * @param int[] $config
      */
-    public function addTable($section,$title,$data,$config = ['size'=>16])
+    public function addTable($section,$title,$data,$tableConfig = [],$firstRowConfig = ['bgColor' => 'D9D9D9'])
     {
-        $section->addText('Basic table',$config);
-        $table = $section->addTable();
+        if ($tableConfig) {
+            self::$obj->addTableStyle('tableStype',$tableConfig,$firstRowConfig);
+            $table = $section->addTable('tableStype');
+        } else {
+            $table = $section->addTable('default');
+        }
+
         //设置表头
         $titleRow = [];
         $table->addRow();
-        foreach ($title as $key=>$value) {
-            $table->addCell(1750)->addText($value);
+        foreach ($title as $key=>$titleData) {
+            $table->addCell($titleData['width'],$titleData['style'])->addTextRun(['alignment'=>Jc::CENTER])->addText($titleData['value'],['bold'=>true,
+                'name'=>'宋体','size'=>'10']);
             array_push($titleRow,$key);
         }
         //设置表数据
         foreach ($data as $rowData) {
             $table->addRow();
             foreach ($titleRow as $item) {
-               $table->addCell(1750)->addText($rowData[$item]);
+                $table->addCell()->addText($rowData[$item]);
             }
         }
     }
