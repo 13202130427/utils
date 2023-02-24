@@ -61,7 +61,7 @@ class Word
         return self::$obj->addSection();
     }
 
-    public function addTitle($section,$title)
+    public function addTitle(&$section,$title)
     {
         $section->addText($title,['size'=>16]);
     }
